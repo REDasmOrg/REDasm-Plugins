@@ -30,8 +30,8 @@ template<typename T> void RTTIMsvc<T>::search()
         if(it == m_rttiobjects.end())
             continue;
 
-        std::string objectname = this->objectName(rttiobject);
-        std::string vtablename = this->vtableName(rttiobject);
+        String objectname = this->objectName(rttiobject);
+        String vtablename = this->vtableName(rttiobject);
         const T* pobjectdata = rttivtableitem.second;
         address_location address = m_loader->addressof(pobjectdata), rttiobjectaddress = m_loader->addressof(rttiobject);
 
@@ -55,8 +55,8 @@ template<typename T> void RTTIMsvc<T>::search()
             address = m_loader->addressof(pobjectdata);
             m_disassembler->disassemble(*pobjectdata);
 
-            lock->lock(address, objectname + "::vftable_" + std::to_string(i), SymbolType::Data | SymbolType::Pointer);
-            lock->function(*pobjectdata, objectname + "::sub_" + Utils::hex(*pobjectdata));
+            lock->lock(address, objectname + "::vftable_" + String::number(i), SymbolType::Data | SymbolType::Pointer);
+            lock->function(*pobjectdata, objectname + "::sub_" + String::hex(*pobjectdata));
 
             m_disassembler->pushReference(*pobjectdata, address);
 
@@ -68,7 +68,7 @@ template<typename T> void RTTIMsvc<T>::search()
     }
 
     if(m_rttiobjects.size())
-        r_ctx->log("Found " + std::to_string(m_rttiobjects.size()) + " RTTI objects");
+        r_ctx->log("Found " + String::number(m_rttiobjects.size()) + " RTTI objects");
     else
         r_ctx->log("No RTTI Objects found");
 }
@@ -89,28 +89,28 @@ template<typename T> address_t RTTIMsvc<T>::rttiAddress(address_t address) const
     return address;
 }
 
-template<typename T> std::string RTTIMsvc<T>::objectName(const RTTIMsvc::RTTITypeDescriptor *rttitype)
+template<typename T> String RTTIMsvc<T>::objectName(const RTTIMsvc::RTTITypeDescriptor *rttitype)
 {
-    std::string rttitypename = reinterpret_cast<const char*>(&rttitype->name);
-    return Demangler::demangled("?" + rttitypename.substr(4) + "6A@Z");
+    String rttitypename = reinterpret_cast<const char*>(&rttitype->name);
+    return Demangler::demangled("?" + rttitypename.substring(4) + "6A@Z");
 }
 
-template<typename T> std::string RTTIMsvc<T>::objectName(const RTTICompleteObjectLocator *rttiobject) const
+template<typename T> String RTTIMsvc<T>::objectName(const RTTICompleteObjectLocator *rttiobject) const
 {
     const RTTITypeDescriptor* rttitype = m_loader->addrpointer<RTTITypeDescriptor>(this->rttiAddress(rttiobject->pTypeDescriptor));
     return objectName(rttitype);
 }
 
-template<typename T> std::string RTTIMsvc<T>::vtableName(const RTTICompleteObjectLocator *rttiobject) const
+template<typename T> String RTTIMsvc<T>::vtableName(const RTTICompleteObjectLocator *rttiobject) const
 {
     const RTTITypeDescriptor* rttitype = m_loader->addrpointer<RTTITypeDescriptor>(this->rttiAddress(rttiobject->pTypeDescriptor));
-    std::string rttitypename = reinterpret_cast<const char*>(&rttitype->name);
-    return Demangler::demangled("??_7" + rttitypename.substr(4) + "6B@Z");
+    String rttitypename = reinterpret_cast<const char*>(&rttitype->name);
+    return Demangler::demangled("??_7" + rttitypename.substring(4) + "6B@Z");
 }
 
 template<typename T> void RTTIMsvc<T>::readHierarchy(document_x_lock& lock, const RTTICompleteObjectLocator* rttiobject) const
 {
-    std::string objectname = objectName(rttiobject);
+    String objectname = this->objectName(rttiobject);
     RTTIClassHierarchyDescriptor* pclasshierarchy = m_loader->addrpointer<RTTIClassHierarchyDescriptor>(this->rttiAddress(rttiobject->pClassHierarchyDescriptor));
     u32* pbcdescriptor = m_loader->addrpointer<u32>(this->rttiAddress(pclasshierarchy->pBaseClassArray));
 
@@ -123,19 +123,23 @@ template<typename T> void RTTIMsvc<T>::readHierarchy(document_x_lock& lock, cons
         REDasm::symbolize<RTTIBaseClassDescriptor>(m_disassembler, m_loader->addressof(pbaseclass), objectname + "::rtti_base_class");
 
         RTTITypeDescriptor* rttitype = m_loader->addrpointer<RTTITypeDescriptor>(this->rttiAddress(pbaseclass->pTypeDescriptor));
-        lock->lock(bcaddress, objectname + "::ptr_base_" + objectName(rttitype) + "_" + Utils::hex(bcaddress), SymbolType::Data | SymbolType::Pointer);
+        lock->lock(bcaddress, objectname + "::ptr_base_" + objectName(rttitype) + "_" + String::hex(bcaddress), SymbolType::Data | SymbolType::Pointer);
     }
 }
 
 template<typename T> void RTTIMsvc<T>::searchDataSegments()
 {
-    for(const Segment& segment : m_document->segments())
+    auto it = m_document->segments().iterator();
+
+    while(it.hasNext())
     {
-        if(segment.empty() || segment.is(SegmentType::Bss) || segment.is(SegmentType::Code) || (segment.name.find("data") == std::string::npos))
+        const Segment* segment = variant_object<Segment>(it.next());
+
+        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || segment->name.contains("data"))
             continue;
 
-        r_ctx->status("Checking segment '" + segment.name + "'");
-        m_segments.push_front(&segment);
+        r_ctx->status("Checking segment '" + segment->name + "'");
+        m_segments.push_front(segment);
     }
 }
 
@@ -154,7 +158,7 @@ template<typename T> void RTTIMsvc<T>::searchTypeDescriptors()
         {
             const RTTITypeDescriptor* rttitype = RTTI_MSVC_TYPE_DESCRIPTOR(res.result());
             address_t rttiaddress = m_loader->addressof(rttitype);
-            r_ctx->statusAddress("Searching RTTITypeDescriptors in " + Utils::quoted(segment->name), rttiaddress);
+            r_ctx->statusAddress("Searching RTTITypeDescriptors in " + segment->name.quoted(), rttiaddress);
 
             if(m_document->segment(rttitype->pVFTable))
             {
@@ -186,7 +190,7 @@ template<typename T> void RTTIMsvc<T>::searchCompleteObjects()
             if(!res.hasNext())
                 continue;
 
-            r_ctx->statusProgress("Searching RTTICompleteObjectLocators in " + Utils::quoted(segment->name), m_loader->address(res.position()));
+            r_ctx->statusProgress("Searching RTTICompleteObjectLocators in " + segment->name.quoted(), m_loader->address(res.position()));
             m_rttiobjects.emplace(reinterpret_cast<const RTTICompleteObjectLocator*>(res.result()), segment->address + res.position());
             break;
         }
@@ -198,7 +202,7 @@ template<typename T> void RTTIMsvc<T>::searchVTables()
     for(const auto& item : m_rttiobjects)
     {
         const RTTICompleteObjectLocator* rttiobject = item.first;
-        r_ctx->status("Searching VTables for " + Utils::quoted(objectName(rttiobject)));
+        r_ctx->status("Searching VTables for " + this->objectName(rttiobject).quoted());
 
         for(const Segment* segment : m_segments)
         {

@@ -8,7 +8,7 @@
 
 using namespace REDasm;
 
-typedef std::function<void(const std::string&, const COFF_Entry*)> SymbolCallback;
+typedef std::function<void(const String&, const COFF_Entry*)> SymbolCallback;
 
 class COFFSymbolTable
 {
@@ -18,8 +18,8 @@ class COFFSymbolTable
         const COFF_Entry* at(size_t index) const;
 
     private:
-        std::string nameFromTable(offset_t offset) const;
-        std::string nameFromEntry(const char* name) const;
+        String nameFromTable(offset_t offset) const;
+        String nameFromEntry(const char* name) const;
 
     private:
         size_t m_count;

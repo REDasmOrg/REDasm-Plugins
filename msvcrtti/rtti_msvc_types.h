@@ -1,6 +1,6 @@
 #pragma once
 
-#include <redasm/types/base_types.h>
+#include <redasm/types/base.h>
 #include <redasm/libs/visit_struct/visit_struct.hpp>
 
 enum RTTISignatureType: u32 { x86 = 0, x64 = 1 };

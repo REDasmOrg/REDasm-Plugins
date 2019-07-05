@@ -13,7 +13,7 @@ COFFSymbolTable::COFFSymbolTable(const u8 *symdata, size_t count): m_count(count
 void COFFSymbolTable::read(const SymbolCallback& symbolcb)
 {
     const COFF_Entry* entry = reinterpret_cast<const COFF_Entry*>(m_symdata);
-    std::string name;
+    String name;
 
     while(reinterpret_cast<const size_t*>(entry) < reinterpret_cast<const size_t*>(m_stringtable))
     {
@@ -41,10 +41,10 @@ const COFF_Entry *COFFSymbolTable::at(size_t index) const
     return &entry[index];
 }
 
-std::string COFFSymbolTable::nameFromTable(offset_t offset) const { return std::string(reinterpret_cast<const char*>(m_stringtable + offset)); }
+String COFFSymbolTable::nameFromTable(offset_t offset) const { return String(reinterpret_cast<const char*>(m_stringtable + offset)); }
 
-std::string COFFSymbolTable::nameFromEntry(const char *name) const
+String COFFSymbolTable::nameFromEntry(const char *name) const
 {
     size_t len = std::min(strlen(name), static_cast<size_t>(E_SYMNMLEN));
-    return std::string(name, len);
+    return String(name, len);
 }

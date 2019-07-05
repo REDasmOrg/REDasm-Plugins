@@ -8,19 +8,19 @@ REDASM_PLUGIN("Dax", "COFF Parser", "MIT", 1)
 
 REDASM_EXEC
 {
-    if(!args.expect({ArgumentType::Pointer, ArgumentType::Integer}))
+    if(!args.expect({Variant::Type::POINTER, ArgumentList::INTEGER}))
         return false;
 
     Disassembler* disassembler = r_ctx->disassembler();
     Loader* loader = disassembler->loader();
-    u8* data = args[0].pointer<u8>();
-    size_t count = args[1].integer<size_t>();
+    u8* data = variant_pointer<u8>(args[0]);
+    size_t count = args[1].toU32();
 
     COFFSymbolTable coff(data, count);
 
-    coff.read([&](const std::string& name, const COFF_Entry* entry) {
-        const Segment& segment = loader->document()->segments()[entry->e_scnum - 1];
-        loader->document()->lock(segment.address + entry->e_value, name, SymbolType::Function);
+    coff.read([&](const String& name, const COFF_Entry* entry) {
+        const Segment* segment = variant_object<Segment>(loader->document()->segments().at(entry->e_scnum - 1));
+        loader->document()->lock(segment->address + entry->e_value, name, SymbolType::Function);
     });
 
     return false;

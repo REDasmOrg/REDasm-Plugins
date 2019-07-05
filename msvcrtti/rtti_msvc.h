@@ -26,8 +26,8 @@ template<typename T> class RTTIMsvc
     private:
         u32 rttiSignature() const;
         address_t rttiAddress(address_t address) const;
-        std::string objectName(const RTTICompleteObjectLocator* rttiobject) const;
-        std::string vtableName(const RTTICompleteObjectLocator* rttiobject) const;
+        String objectName(const RTTICompleteObjectLocator* rttiobject) const;
+        String vtableName(const RTTICompleteObjectLocator* rttiobject) const;
         void readHierarchy(document_x_lock& lock, const RTTICompleteObjectLocator* rttiobject) const;
         void searchDataSegments();
         void searchTypeDescriptors();
@@ -35,7 +35,7 @@ template<typename T> class RTTIMsvc
         void searchVTables();
 
     private:
-        static std::string objectName(const RTTITypeDescriptor* rttitype);
+        static String objectName(const RTTITypeDescriptor* rttitype);
 
     private:
         Disassembler* m_disassembler;
