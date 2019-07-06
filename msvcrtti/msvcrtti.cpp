@@ -7,7 +7,7 @@ REDASM_PLUGIN("MSVC RTTI Parser", "Dax", "MIT", 1)
 
 REDASM_EXEC
 {
-    if(!args.expect({ArgumentList::INTEGER}))
+    if(!args.expect({Variant::INTEGER}))
         return false;
 
     size_t bits = args[0].toU32();

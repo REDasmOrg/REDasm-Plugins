@@ -8,7 +8,7 @@ REDASM_PLUGIN("Dax", "COFF Parser", "MIT", 1)
 
 REDASM_EXEC
 {
-    if(!args.expect({Variant::Type::POINTER, ArgumentList::INTEGER}))
+    if(!args.expect({Variant::POINTER, Variant::INTEGER}))
         return false;
 
     Disassembler* disassembler = r_ctx->disassembler();
