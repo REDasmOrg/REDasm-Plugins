@@ -229,3 +229,6 @@ template<typename T> void RTTIMsvc<T>::searchVTables()
         }
     }
 }
+
+template class RTTIMsvc<u32>;
+template class RTTIMsvc<u64>;

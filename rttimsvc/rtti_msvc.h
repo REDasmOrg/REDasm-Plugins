@@ -48,5 +48,3 @@ template<typename T> class RTTIMsvc
         RTTITypeDescriptorMap m_rttitypes;
         DataSegmentList m_segments;
 };
-
-#include "rtti_msvc_impl.h"

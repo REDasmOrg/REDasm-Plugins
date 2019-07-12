@@ -14,8 +14,13 @@ REDASM_EXEC
 
     if(bits == 64)
         RTTIMsvc<u64>(r_ctx->disassembler()).search();
-    else
+    else if(bits == 32)
         RTTIMsvc<u32>(r_ctx->disassembler()).search();
+    else
+    {
+        r_ctx->log("Unsupported bits: " + String::number(bits));
+        return false;
+    }
 
     return true;
 }
