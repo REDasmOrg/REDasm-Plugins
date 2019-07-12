@@ -50,7 +50,7 @@ template<typename T> void RTTIMsvc<T>::search()
 
         const Segment* segment = lock->segment(static_cast<T>(*pobjectdata));
 
-        for(u64 i = 0; segment && segment->is(SegmentType::Code); i++) // Walk vtable
+        for(T i = 0; segment && segment->is(SegmentType::Code); i++) // Walk vtable
         {
             address = m_loader->addressof(pobjectdata);
             m_disassembler->disassemble(*pobjectdata);
@@ -91,7 +91,7 @@ template<typename T> address_t RTTIMsvc<T>::rttiAddress(address_t address) const
 
 template<typename T> String RTTIMsvc<T>::objectName(const RTTIMsvc::RTTITypeDescriptor *rttitype)
 {
-    String rttitypename = reinterpret_cast<const char*>(&rttitype->name);
+    String rttitypename = rttitype->name;
     return Demangler::demangled("?" + rttitypename.substring(4) + "6A@Z");
 }
 
@@ -104,7 +104,7 @@ template<typename T> String RTTIMsvc<T>::objectName(const RTTICompleteObjectLoca
 template<typename T> String RTTIMsvc<T>::vtableName(const RTTICompleteObjectLocator *rttiobject) const
 {
     const RTTITypeDescriptor* rttitype = m_loader->addrpointer<RTTITypeDescriptor>(this->rttiAddress(rttiobject->pTypeDescriptor));
-    String rttitypename = reinterpret_cast<const char*>(&rttitype->name);
+    String rttitypename = rttitype->name;
     return Demangler::demangled("??_7" + rttitypename.substring(4) + "6B@Z");
 }
 
@@ -135,7 +135,7 @@ template<typename T> void RTTIMsvc<T>::searchDataSegments()
     {
         const Segment* segment = variant_object<Segment>(it.next());
 
-        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || segment->name.contains("data"))
+        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || !segment->name.contains("data"))
             continue;
 
         r_ctx->status("Checking segment '" + segment->name + "'");
@@ -154,7 +154,7 @@ template<typename T> void RTTIMsvc<T>::searchTypeDescriptors()
 
         auto res = view.find<char>(RTTI_MSVC_CLASS_DESCRIPTOR_PREFIX);
 
-        while(res.hasNext())
+        while(res.isValid())
         {
             const RTTITypeDescriptor* rttitype = RTTI_MSVC_TYPE_DESCRIPTOR(res.result());
             address_t rttiaddress = m_loader->addressof(rttitype);
@@ -187,7 +187,7 @@ template<typename T> void RTTIMsvc<T>::searchCompleteObjects()
             BufferView view = m_loader->viewSegment(segment);
             auto res = view.find<RTTICompleteObjectLocatorSearch>(&searchobj);
 
-            if(!res.hasNext())
+            if(!res.isValid())
                 continue;
 
             r_ctx->statusProgress("Searching RTTICompleteObjectLocators in " + segment->name.quoted(), m_loader->address(res.position()));
@@ -202,20 +202,24 @@ template<typename T> void RTTIMsvc<T>::searchVTables()
     for(const auto& item : m_rttiobjects)
     {
         const RTTICompleteObjectLocator* rttiobject = item.first;
+        const char* s = this->objectName(rttiobject).c_str();
         r_ctx->status("Searching VTables for " + this->objectName(rttiobject).quoted());
 
         for(const Segment* segment : m_segments)
         {
             BufferView view = m_loader->viewSegment(segment);
-            auto res = view.find(reinterpret_cast<const T*>(&item.second));
+            SearchResult res = view.find(reinterpret_cast<const T*>(&item.second));
             bool found = false;
 
-            while(res.hasNext())
+            while(res.isValid())
             {
-                const RTTICompleteObjectLocator* foundrttiobject = m_loader->addrpointer<RTTICompleteObjectLocator>(*res.result());
+                const RTTICompleteObjectLocator* foundrttiobject = m_loader->addrpointer<RTTICompleteObjectLocator>(*reinterpret_cast<const T*>(res.result()));
 
                 if(rttiobject != foundrttiobject)
+                {
                     res = res.next();
+                    continue;
+                }
 
                 found = true;
                 break;
