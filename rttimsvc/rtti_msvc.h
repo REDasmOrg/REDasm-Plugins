@@ -20,7 +20,7 @@ template<typename T> class RTTIMsvc
         typedef std::unordered_map<const RTTICompleteObjectLocator*, const T*> RTTIVTableMap;
 
     public:
-        RTTIMsvc(Disassembler *disassembler);
+        RTTIMsvc() = default;
         void search();
 
     private:
@@ -36,11 +36,6 @@ template<typename T> class RTTIMsvc
 
     private:
         static String objectName(const RTTITypeDescriptor* rttitype);
-
-    private:
-        Disassembler* m_disassembler;
-        ListingDocument& m_document;
-        const Loader* m_loader;
 
     private:
         RTTIVTableMap m_rttivtables;
