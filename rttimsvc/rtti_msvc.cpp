@@ -39,7 +39,7 @@ template<typename T> void RTTIMsvc<T>::search()
         r_ctx->status("Reading " + objectname + "'s VTable");
 
         lock->type(address, vtablename);
-        lock->lock(address, objectname + "::ptr_rtti_object", SymbolType::Data | SymbolType::Pointer);
+        lock->pointer(address, objectname + "::ptr_rtti_object");
 
         REDasm::symbolize<RTTICompleteObjectLocator>(r_disasm, rttiobjectaddress, objectname + "::rtti_complete_object_locator");
         REDasm::symbolize<RTTIClassHierarchyDescriptor>(r_disasm, rttiAddress(rttiobject->pClassHierarchyDescriptor), objectname + "::rtti_class_hierarchy");
@@ -53,7 +53,7 @@ template<typename T> void RTTIMsvc<T>::search()
             address = r_ldr->addressof(pobjectdata);
             r_disasm->disassemble(*pobjectdata);
 
-            lock->lock(address, objectname + "::vftable_" + String::number(i), SymbolType::Data | SymbolType::Pointer);
+            lock->pointer(address, objectname + "::vftable_" + String::number(i));
             lock->function(*pobjectdata, objectname + "::sub_" + String::hex(*pobjectdata));
 
             r_disasm->pushReference(*pobjectdata, address);
@@ -117,24 +117,24 @@ template<typename T> void RTTIMsvc<T>::readHierarchy(document_x_lock& lock, cons
         address_t bcaddress = r_ldr->addressof(pbcdescriptor);
         RTTIBaseClassDescriptor* pbaseclass = r_ldr->addrpointer<RTTIBaseClassDescriptor>(this->rttiAddress(*pbcdescriptor));
 
-        lock->pointer(this->rttiAddress(pclasshierarchy->pBaseClassArray), SymbolType::Data);
+        lock->pointer(this->rttiAddress(pclasshierarchy->pBaseClassArray));
         REDasm::symbolize<RTTIBaseClassDescriptor>(r_disasm, r_ldr->addressof(pbaseclass), objectname + "::rtti_base_class");
 
         RTTITypeDescriptor* rttitype = r_ldr->addrpointer<RTTITypeDescriptor>(this->rttiAddress(pbaseclass->pTypeDescriptor));
-        lock->lock(bcaddress, objectname + "::ptr_base_" + objectName(rttitype) + "_" + String::hex(bcaddress), SymbolType::Data | SymbolType::Pointer);
+        lock->pointer(bcaddress, objectname + "::ptr_base_" + objectName(rttitype) + "_" + String::hex(bcaddress));
     }
 }
 
 template<typename T> void RTTIMsvc<T>::searchDataSegments()
 {
-    for(size_t i = 0; i < r_doc->segments().size(); i++)
+    for(size_t i = 0; i < r_doc->segmentsCount(); i++)
     {
-        const Segment* segment = variant_object<Segment>(r_doc->segments()[i]);
+        const Segment* segment = r_doc->segmentAt(i);
 
-        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || !segment->name.contains("data"))
+        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || !segment->name().contains("data"))
             continue;
 
-        r_ctx->status("Checking segment '" + segment->name + "'");
+        r_ctx->status("Checking segment '" + segment->name() + "'");
         m_segments.push_front(segment);
     }
 }
@@ -154,7 +154,7 @@ template<typename T> void RTTIMsvc<T>::searchTypeDescriptors()
         {
             const RTTITypeDescriptor* rttitype = RTTI_MSVC_TYPE_DESCRIPTOR(res.result());
             address_t rttiaddress = r_ldr->addressof(rttitype);
-            r_ctx->statusAddress("Searching RTTITypeDescriptors in " + segment->name.quoted(), rttiaddress);
+            r_ctx->statusAddress("Searching RTTITypeDescriptors in " + segment->name().quoted(), rttiaddress);
 
             if(r_doc->segment(rttitype->pVFTable))
             {
@@ -186,7 +186,7 @@ template<typename T> void RTTIMsvc<T>::searchCompleteObjects()
             if(!res.isValid())
                 continue;
 
-            r_ctx->statusProgress("Searching RTTICompleteObjectLocators in " + segment->name.quoted(), r_ldr->address(res.position()));
+            r_ctx->statusProgress("Searching RTTICompleteObjectLocators in " + segment->name().quoted(), r_ldr->address(res.position()));
             m_rttiobjects.emplace(reinterpret_cast<const RTTICompleteObjectLocator*>(res.result()), segment->address + res.position());
             break;
         }
