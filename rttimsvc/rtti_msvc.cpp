@@ -41,8 +41,8 @@ template<typename T> void RTTIMsvc<T>::search()
         lock->type(address, vtablename);
         lock->pointer(address, objectname + "::ptr_rtti_object");
 
-        REDasm::symbolize<RTTICompleteObjectLocator>(r_disasm, rttiobjectaddress, objectname + "::rtti_complete_object_locator");
-        REDasm::symbolize<RTTIClassHierarchyDescriptor>(r_disasm, rttiAddress(rttiobject->pClassHierarchyDescriptor), objectname + "::rtti_class_hierarchy");
+        REDasm::symbolize<RTTICompleteObjectLocator>(rttiobjectaddress, objectname + "::rtti_complete_object_locator");
+        REDasm::symbolize<RTTIClassHierarchyDescriptor>(rttiAddress(rttiobject->pClassHierarchyDescriptor), objectname + "::rtti_class_hierarchy");
         r_disasm->pushReference(rttiobjectaddress, address);
         pobjectdata++; // Skip RTTICompleteObjectLocator
 
@@ -118,7 +118,7 @@ template<typename T> void RTTIMsvc<T>::readHierarchy(document_x_lock& lock, cons
         RTTIBaseClassDescriptor* pbaseclass = r_ldr->addrpointer<RTTIBaseClassDescriptor>(this->rttiAddress(*pbcdescriptor));
 
         lock->pointer(this->rttiAddress(pclasshierarchy->pBaseClassArray));
-        REDasm::symbolize<RTTIBaseClassDescriptor>(r_disasm, r_ldr->addressof(pbaseclass), objectname + "::rtti_base_class");
+        REDasm::symbolize<RTTIBaseClassDescriptor>(r_ldr->addressof(pbaseclass), objectname + "::rtti_base_class");
 
         RTTITypeDescriptor* rttitype = r_ldr->addrpointer<RTTITypeDescriptor>(this->rttiAddress(pbaseclass->pTypeDescriptor));
         lock->pointer(bcaddress, objectname + "::ptr_base_" + objectName(rttitype) + "_" + String::hex(bcaddress));
@@ -158,7 +158,7 @@ template<typename T> void RTTIMsvc<T>::searchTypeDescriptors()
 
             if(r_doc->segment(rttitype->pVFTable))
             {
-                REDasm::symbolize<RTTITypeDescriptor>(r_disasm, rttiaddress, objectName(rttitype) + "::rtti_type_descriptor");
+                REDasm::symbolize<RTTITypeDescriptor>(rttiaddress, objectName(rttitype) + "::rtti_type_descriptor");
                 m_rttitypes.emplace(segment->address + res.position() - RTTI_MSVC_FIXUP, rttitype);
             }
 
