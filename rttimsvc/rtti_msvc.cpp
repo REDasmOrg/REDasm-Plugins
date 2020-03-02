@@ -48,7 +48,7 @@ template<typename T> void RTTIMsvc<T>::search()
 
         const Segment* segment = lock->segment(static_cast<T>(*pobjectdata));
 
-        for(T i = 0; segment && segment->is(SegmentType::Code); i++) // Walk vtable
+        for(T i = 0; segment && segment->is(Segment::T_Code); i++) // Walk vtable
         {
             address = r_ldr->addressof(pobjectdata);
             r_disasm->disassemble(*pobjectdata);
@@ -131,7 +131,7 @@ template<typename T> void RTTIMsvc<T>::searchDataSegments()
     {
         const Segment* segment = r_doc->segmentAt(i);
 
-        if(segment->empty() || segment->is(SegmentType::Bss) || segment->is(SegmentType::Code) || !segment->name().contains("data"))
+        if(segment->empty() || segment->is(Segment::T_Bss) || segment->is(Segment::T_Code) || !segment->name().contains("data"))
             continue;
 
         r_ctx->status("Checking segment '" + segment->name() + "'");
