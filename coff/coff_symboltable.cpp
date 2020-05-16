@@ -1,4 +1,6 @@
 #include "coff_symboltable.h"
+#include <cstring>
+#include <string>
 
 #define	COFF_ENTRYSIZE    18
 #define	COFF_AUXENTRYSIZE 18
@@ -13,19 +15,15 @@ COFFSymbolTable::COFFSymbolTable(const u8 *symdata, size_t count): m_count(count
 void COFFSymbolTable::read(const SymbolCallback& symbolcb)
 {
     const COFF_Entry* entry = reinterpret_cast<const COFF_Entry*>(m_symdata);
-    String name;
+    std::string name;
 
     while(reinterpret_cast<const size_t*>(entry) < reinterpret_cast<const size_t*>(m_stringtable))
     {
         if((entry->e_scnum > 0) && COFF_IS_FUNCTION(entry->e_type) && ((entry->e_sclass == C_LABEL) || (entry->e_sclass == C_EXT) || (entry->e_sclass == C_STAT)))
         {
-            if(!entry->e_zeroes)
-                name = this->nameFromTable(entry->e_offset);
-            else
-                name = this->nameFromEntry(reinterpret_cast<const char*>(&entry->e_name));
-
-            if(!name.empty())
-                symbolcb( name, entry);
+            if(!entry->e_zeroes) name = this->nameFromTable(entry->e_offset);
+            else name = this->nameFromEntry(reinterpret_cast<const char*>(&entry->e_name));
+            if(!name.empty()) symbolcb(name.c_str(), entry);
         }
 
         entry = COFF_NEXTENTRY(entry);
@@ -34,17 +32,16 @@ void COFFSymbolTable::read(const SymbolCallback& symbolcb)
 
 const COFF_Entry *COFFSymbolTable::at(size_t index) const
 {
-    if(index >= m_count)
-        return nullptr;
+    if(index >= m_count) return nullptr;
 
     const COFF_Entry* entry = reinterpret_cast<const COFF_Entry*>(m_symdata);
     return &entry[index];
 }
 
-String COFFSymbolTable::nameFromTable(offset_t offset) const { return String(reinterpret_cast<const char*>(m_stringtable + offset)); }
+const char* COFFSymbolTable::nameFromTable(offset_t offset) const { return reinterpret_cast<const char*>(m_stringtable + offset); }
 
-String COFFSymbolTable::nameFromEntry(const char *name) const
+std::string COFFSymbolTable::nameFromEntry(const char *name) const
 {
-    size_t len = std::min(strlen(name), static_cast<size_t>(E_SYMNMLEN));
-    return String(name, len);
+    size_t len = std::min(std::strlen(name), static_cast<size_t>(E_SYMNMLEN));
+    return std::string(name, len);
 }

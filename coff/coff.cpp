@@ -1,25 +1,32 @@
-#include <redasm/redasm.h>
-#include <redasm/plugins/plugin.h>
+#include <rdapi/rdapi.h>
 #include "coff_symboltable.h"
 
-using namespace REDasm;
-
-REDASM_PLUGIN("Dax", "COFF Parser", "MIT", 1)
-
-REDASM_EXEC
+static bool execute(const RDCommandPlugin*, const RDArguments* a)
 {
-    if(!args.expect({Variant::POINTER, Variant::INTEGER}))
-        return false;
+    if(a->args[0].type != ArgumentType_Pointer) return false;
+    if(a->args[1].type != ArgumentType_Pointer) return false;
+    if(a->args[2].type != ArgumentType_UInt) return false;
 
-    u8* data = variant_pointer<u8>(args[0]);
-    size_t count = args[1].toU32();
+    RDDocument* doc = reinterpret_cast<RDDocument*>(a->args[0].p_data);
+    const u8* data = reinterpret_cast<const u8*>(a->args[1].p_data);
+    size_t count = a->args[2].u_data;
 
     COFFSymbolTable coff(data, count);
 
-    coff.read([&](const String& name, const COFF_Entry* entry) {
-        const Segment* segment = r_doc->segmentAt(entry->e_scnum - 1);
-        r_doc->function(segment->address + entry->e_value, name);
+    coff.read([&](const char* name, const COFF_Entry* entry) {
+        RDSegment segment;
+        if(!RDDocument_GetSegmentAt(doc, entry->e_scnum - 1, &segment)) return;
+        RDDocument_AddFunction(doc, segment.address + entry->e_value, name);
     });
 
     return false;
 }
+
+RD_PLUGIN(RDCommandPlugin, coff, "COFF", nullptr, nullptr, execute);
+
+void entry()
+{
+    RDCommand_Register(&coff);
+}
+
+RD_DECLARE_PLUGIN(entry);

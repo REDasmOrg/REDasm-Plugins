@@ -3,12 +3,10 @@
 // http://wiki.osdev.org/COFF#Symbol_Table
 
 #include <functional>
-#include <redasm/redasm.h>
+#include <rdapi/rdapi.h>
 #include "coff_types.h"
 
-using namespace REDasm;
-
-typedef std::function<void(const String&, const COFF_Entry*)> SymbolCallback;
+typedef std::function<void(const char*, const COFF_Entry*)> SymbolCallback;
 
 class COFFSymbolTable
 {
@@ -18,8 +16,8 @@ class COFFSymbolTable
         const COFF_Entry* at(size_t index) const;
 
     private:
-        String nameFromTable(offset_t offset) const;
-        String nameFromEntry(const char* name) const;
+        const char* nameFromTable(offset_t offset) const;
+        std::string nameFromEntry(const char* name) const;
 
     private:
         size_t m_count;

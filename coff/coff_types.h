@@ -1,6 +1,6 @@
 #pragma once
 
-#include <redasm/redasm.h>
+#include <rdapi/types.h>
 #include "coff_constants.h"
 
 struct COFF_Entry
