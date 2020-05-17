@@ -22,11 +22,10 @@ static bool execute(const RDCommandPlugin*, const RDArguments* a)
     return false;
 }
 
-RD_PLUGIN(RDCommandPlugin, coff, "COFF", nullptr, nullptr, execute);
+RD_PLUGIN(RDCommandPlugin, coff, "COFF");
 
-void entry()
+void redasm_entry()
 {
+    coff.execute = &execute;
     RDCommand_Register(&coff);
 }
-
-RD_DECLARE_PLUGIN(entry);
