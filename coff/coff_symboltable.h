@@ -16,7 +16,7 @@ class COFFSymbolTable
         const COFF_Entry* at(size_t index) const;
 
     private:
-        const char* nameFromTable(offset_t offset) const;
+        const char* nameFromTable(rd_offset offset) const;
         std::string nameFromEntry(const char* name) const;
 
     private:

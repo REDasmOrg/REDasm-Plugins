@@ -38,7 +38,7 @@ const COFF_Entry *COFFSymbolTable::at(size_t index) const
     return &entry[index];
 }
 
-const char* COFFSymbolTable::nameFromTable(offset_t offset) const { return reinterpret_cast<const char*>(m_stringtable + offset); }
+const char* COFFSymbolTable::nameFromTable(rd_offset offset) const { return reinterpret_cast<const char*>(m_stringtable + offset); }
 
 std::string COFFSymbolTable::nameFromEntry(const char *name) const
 {

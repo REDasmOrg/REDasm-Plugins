@@ -3,7 +3,7 @@
 
 using namespace REDasm;
 
-REDASM_PLUGIN("MSVC RTTI Parser", "Dax", "MIT", 1)
+redasm_plugin("MSVC RTTI Parser", "Dax", "MIT", 1)
 
 REDASM_EXEC
 {
