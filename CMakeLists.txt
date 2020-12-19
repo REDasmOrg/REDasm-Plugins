@@ -4,4 +4,4 @@ project(REDasm_Plugins)
 
 #add_subdirectory(coff)
 #add_subdirectory(rttimsvc)
-#add_subdirectory(compiler)
+add_subdirectory(compiler)
