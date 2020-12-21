@@ -6,7 +6,9 @@
 #define MSVC_CLASS_PREFIX_LENGTH 4
 
 #define RTTICOMPLETEOBJECTLOCATOR_NAME "RTTICompleteObjectLocator"
+#define RTTITYPEDESCRIPTOR_NAME        "RTTITypeDescriptor"
 #define DB_RTTICOMPLOBJLOCATOR_Q       (std::string("/msvcrtti/") + RTTICOMPLETEOBJECTLOCATOR_NAME).c_str()
+#define DB_RTTITYPEDESCR_Q             (std::string("/msvcrtti/") + RTTITYPEDESCRIPTOR_NAME).c_str()
 
 MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 {
@@ -18,6 +20,17 @@ MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 void MSVCRTTI::search()
 {
     this->findCompleteObjLocators();
+
+    for(const RTTICompleteObjectLocator* col : m_completeobjs)
+    {
+        auto loc = RD_AddressOf(m_loader, col);
+        if(!loc.valid) continue;
+
+        RDDocument_AddTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
+
+        if(RD_IsAddress(m_loader, col->pTypeDescriptor))
+            RDDocument_AddTypeName(m_document, col->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+    }
 }
 
 void MSVCRTTI::registerTypes()
@@ -30,8 +43,13 @@ void MSVCRTTI::registerTypes()
     RDStructure_Append(cobjloc.get(), RDType_CreateInt(4, false), "cdOffset");
     RDStructure_Append(cobjloc.get(), RDType_CreateInt(4, false), "pTypeDescriptor");
     RDStructure_Append(cobjloc.get(), RDType_CreateInt(4, false), "pClassHierarchyDescriptor");
-
     RDDatabase_WriteType(db, DB_RTTICOMPLOBJLOCATOR_Q, cobjloc.get());
+
+    rd_ptr<RDType> typedescr(RDType_CreateStructure(RTTITYPEDESCRIPTOR_NAME));
+    RDStructure_Append(typedescr.get(), RDType_CreateInt(4, false), "pVFTable");
+    RDStructure_Append(typedescr.get(), RDType_CreateInt(4, false), "spare");
+    //RDStructure_Append(cobjloc.get(), RDType_CreateString(), "name");
+    RDDatabase_WriteType(db, DB_RTTITYPEDESCR_Q, typedescr.get());
 }
 
 void MSVCRTTI::findCompleteObjLocators()
@@ -67,10 +85,6 @@ void MSVCRTTI::findCompleteObjLocators(const RDSegment* segment)
             const char* pname = reinterpret_cast<const char*>(&ptypedesc->name);
             if(!pname || std::strncmp(pname, MSVC_CLASS_PREFIX, MSVC_CLASS_PREFIX_LENGTH)) continue;
             thethis->m_completeobjs.push_back(pobjloc);
-
-            auto loc = RD_AddressOf(thethis->m_loader, pobjloc);
-            rd_log(rd_tohex(loc.address));
-            RDDocument_AddTypeName(thethis->m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
         }
 
         return true;
