@@ -48,7 +48,7 @@ void MSVCRTTI::registerTypes()
     rd_ptr<RDType> typedescr(RDType_CreateStructure(RTTITYPEDESCRIPTOR_NAME));
     RDStructure_Append(typedescr.get(), RDType_CreateInt(4, false), "pVFTable");
     RDStructure_Append(typedescr.get(), RDType_CreateInt(4, false), "spare");
-    //RDStructure_Append(cobjloc.get(), RDType_CreateString(), "name");
+    RDStructure_Append(typedescr.get(), RDType_CreateAsciiString(RD_NVAL), "name");
     RDDatabase_WriteType(db, DB_RTTITYPEDESCR_Q, typedescr.get());
 }
 
