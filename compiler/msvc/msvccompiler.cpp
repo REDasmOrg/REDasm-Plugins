@@ -33,17 +33,17 @@ void MSVCCompiler::parseInitTerm(RDContext* ctx, rd_address address)
     RDDocument* doc = RDContext_GetDocument(ctx);
     auto* net = RDContext_GetNet(ctx);
 
-    const rd_address* refs = nullptr;
+    const RDReference* refs = nullptr;
     size_t c = RDNet_GetReferences(net, address, &refs);
 
     size_t addresswidth = RDContext_GetAddressWidth(ctx);
 
     for(size_t i = 0; i < c; i++)
     {
-        auto* n = RDNet_FindNode(net, refs[i]);
+        auto* n = RDNet_FindNode(net, refs[i].address);
         if(!n) continue;
 
-        rd_ptr<RDILExpression> e(RDILExpression_Create(ctx, refs[i]));
+        rd_ptr<RDILExpression> e(RDILExpression_Create(ctx, refs[i].address));
         if(!e || (RDILExpression_Type(e.get()) != RDIL_Call)) continue;
 
         n = RDNet_GetPrevNode(net, n);
