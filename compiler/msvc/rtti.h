@@ -1,7 +1,7 @@
 #pragma once
 
 #include <rdapi/rdapi.h>
-#include <deque>
+#include <unordered_set>
 #include "rtti_types.h"
 
 class MSVCRTTI
@@ -11,14 +11,17 @@ class MSVCRTTI
         void search();
 
     private:
-        std::string objectName(const RTTICompleteObjectLocator* cobjloc) const;
-        void findCompleteObjLocators(const RDSegment* segment);
-        void findCompleteObjLocators();
-        void parseVTable();
+        std::string objectName(const RTTICompleteObjectLocator* pobjloc) const;
+        const RTTICompleteObjectLocator* findObjectLocator(rd_address vtableaddress, const u32** ppvtable) const;
+        void createVTable(const u32* pvtable, const RTTICompleteObjectLocator* pobjloc);
+        bool createType(const RTTICompleteObjectLocator* pobjloc);
+        bool createHierarchy(rd_address address);
+        void checkVTable(rd_address vtableaddress);
+        void checkTypeInfo();
         void registerTypes();
 
     private:
-        std::deque<const RTTICompleteObjectLocator*> m_completeobjs;
+        std::unordered_set<rd_address> m_vtables, m_donebases;
         rd_ptr<RDType> m_baseclassdescr;
         RDContext* m_context;
         RDDocument* m_document;

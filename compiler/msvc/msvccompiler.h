@@ -2,6 +2,8 @@
 
 #include <rdapi/rdapi.h>
 #include <optional>
+#include <memory>
+#include "rtti.h"
 
 class MSVCCompiler
 {
@@ -14,5 +16,8 @@ class MSVCCompiler
         static std::optional<rd_address> extractInitTermArg(RDContext* ctx, rd_address address);
         static void parseInitTerm(RDContext* ctx, rd_address address);
         static void checkInitTerm(RDContext* ctx);
+
+    private:
+        static std::unique_ptr<MSVCRTTI> m_rtti;
 };
 

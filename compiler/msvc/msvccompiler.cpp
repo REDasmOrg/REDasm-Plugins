@@ -1,5 +1,6 @@
 #include "msvccompiler.h"
-#include "rtti.h"
+
+std::unique_ptr<MSVCRTTI> MSVCCompiler::m_rtti;
 
 bool MSVCCompiler::isEnabled(const RDContext* ctx)
 {
@@ -9,10 +10,9 @@ bool MSVCCompiler::isEnabled(const RDContext* ctx)
 
 void MSVCCompiler::execute(RDContext* ctx)
 {
+    if(!m_rtti) m_rtti = std::make_unique<MSVCRTTI>(ctx);
     MSVCCompiler::checkInitTerm(ctx);
-
-    MSVCRTTI rtti(ctx);
-    rtti.search();
+    m_rtti->search();
 }
 
 std::optional<rd_address> MSVCCompiler::extractInitTermArg(RDContext* ctx, rd_address address)

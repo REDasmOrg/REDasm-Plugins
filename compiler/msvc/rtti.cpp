@@ -23,41 +23,91 @@ MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 
 void MSVCRTTI::search()
 {
-    this->findCompleteObjLocators();
+    RDDocument_EachFunction(m_document, [](rd_address address, void* userdata) {
+        rd_statusaddress("Searching vtables", address);
 
-    for(const RTTICompleteObjectLocator* col : m_completeobjs)
-    {
-        auto loc = RD_AddressOf(m_loader, col);
-        if(!loc.valid) continue;
+        auto* thethis = reinterpret_cast<MSVCRTTI*>(userdata);
+        rd_ptr<RDILFunction> il(RDILFunction_Create(thethis->m_context, address));
+        if(!il) return true;
 
-        RDDocument_AddTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
+        size_t c = RDILFunction_Size(il.get());
 
-        if(RD_IsAddress(m_loader, col->pTypeDescriptor))
-            RDDocument_AddTypeName(m_document, col->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+        for(size_t i = 0; i < c; i++) {
+            auto* expr = RDILFunction_GetExpression(il.get(), i);
+            if(!expr) break;
+            if(!RDILExpression_Match(expr, "[cnst]=cnst") && !RDILExpression_Match(expr, "[reg]=cnst")) continue;
 
-        auto* pchdescr = reinterpret_cast<RTTIClassHierarchyDescriptor*>(RD_AddrPointer(m_loader, col->pClassHierarchyDescriptor));
-        if(!pchdescr) continue;
-
-        RDDocument_AddTypeName(m_document, col->pClassHierarchyDescriptor, DB_RTTIHIERARCHYDESCR_Q);
-        if(!pchdescr->numBaseClasses) continue;
-
-        for(size_t i = 0; i < pchdescr->numBaseClasses; i++)
-        {
-            rd_address a = pchdescr->pBaseClassArray + (i * sizeof(u32));
-            RDDocument_AddPointer(m_document, a, SymbolType_Data, nullptr);
-
-            u32* p = reinterpret_cast<u32*>(RD_AddrPointer(m_loader, a));
-            if(p) RDDocument_AddType(m_document, *p, m_baseclassdescr.get());
+            RDILValue val;
+            expr = RDILExpression_Extract(expr, "src:cnst");
+            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(thethis->m_loader, val.address)) continue;
+            thethis->checkVTable(val.address);
         }
-    }
 
-    this->parseVTable();
+        return true;
+    }, this);
+
+    this->checkTypeInfo();
+    if(!m_vtables.empty()) rd_log("Found " + std::to_string(m_vtables.size()) + " RTTI Objects");
 }
 
-std::string MSVCRTTI::objectName(const RTTICompleteObjectLocator* cobjloc) const
+std::string MSVCRTTI::objectName(const RTTICompleteObjectLocator* pobjloc) const
 {
-    auto* ptypedescr = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, cobjloc->pTypeDescriptor));
+    auto* ptypedescr = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
     return RD_Demangle(("?" + std::string(reinterpret_cast<const char*>(&ptypedescr->name)).substr(4) + "6A@Z").c_str());
+}
+
+const RTTICompleteObjectLocator* MSVCRTTI::findObjectLocator(rd_address vtableaddress, const u32** ppvtable) const
+{
+    const u32* pvtable = reinterpret_cast<const u32*>(RD_AddrPointer(m_loader, vtableaddress));
+    if(!pvtable) return nullptr;
+
+    const auto* pobjloc = reinterpret_cast<const RTTICompleteObjectLocator*>(RD_AddrPointer(m_loader, *(pvtable - 1)));
+    if(!pobjloc || !pobjloc->pClassHierarchyDescriptor || !RD_IsAddress(m_loader, pobjloc->pClassHierarchyDescriptor)) return nullptr;
+
+    if(ppvtable) *ppvtable = pvtable;
+    return pobjloc;
+}
+
+bool MSVCRTTI::createType(const RTTICompleteObjectLocator* pobjloc)
+{
+    auto loc = RD_AddressOf(m_loader, pobjloc);
+    if(!loc.valid) return false;
+
+    RDDocument_AddTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
+
+    if(RD_IsAddress(m_loader, pobjloc->pTypeDescriptor))
+        RDDocument_AddTypeName(m_document, pobjloc->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+
+    return this->createHierarchy(pobjloc->pClassHierarchyDescriptor);
+}
+
+bool MSVCRTTI::createHierarchy(rd_address address)
+{
+    if(m_donebases.count(address)) return true;
+    m_donebases.insert(address);
+
+    auto* pchdescr = reinterpret_cast<RTTIClassHierarchyDescriptor*>(RD_AddrPointer(m_loader, address));
+    if(!pchdescr) return false;
+
+    RDDocument_AddTypeName(m_document, address, DB_RTTIHIERARCHYDESCR_Q);
+    if(!pchdescr->numBaseClasses) return false;
+
+    for(size_t i = 0; i < pchdescr->numBaseClasses; i++)
+    {
+        rd_address a = pchdescr->pBaseClassArray + (i * sizeof(u32));
+        RDDocument_AddPointer(m_document, a, SymbolType_Data, nullptr);
+
+        u32* p = reinterpret_cast<u32*>(RD_AddrPointer(m_loader, a));
+        if(!p) continue;
+        RDDocument_AddType(m_document, *p, m_baseclassdescr.get());
+
+        auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_loader, *p));
+        if(!pbaseclassdescr) continue;
+        RDDocument_AddTypeName(m_document, pbaseclassdescr->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+        this->createHierarchy(pbaseclassdescr->pClassDescriptor);
+    }
+
+    return true;
 }
 
 void MSVCRTTI::registerTypes()
@@ -96,58 +146,57 @@ void MSVCRTTI::registerTypes()
     RDDatabase_WriteType(db, DB_RTTIBASECLASSDESCR_Q, m_baseclassdescr.get());
 }
 
-void MSVCRTTI::findCompleteObjLocators()
+void MSVCRTTI::createVTable(const u32* pvtable, const RTTICompleteObjectLocator* pobjloc)
 {
-    RDDocument_EachSegment(m_document, [](const RDSegment* s, void* userdata) {
-        auto* thethis = reinterpret_cast<MSVCRTTI*>(userdata);
-        if(HAS_FLAG(s, SegmentFlags_Bss) || HAS_FLAG(s, SegmentFlags_Code)) return true;
-        thethis->findCompleteObjLocators(s);
-        return true;
-    }, this);
+    if(!this->createType(pobjloc)) return;
 
-    if(!m_completeobjs.empty()) rd_log("Found " + std::to_string(m_completeobjs.size()) + " RTTI Objects");
-}
+    auto loc = RD_AddressOf(m_loader, pvtable - 1);
+    if(loc.valid) RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, (this->objectName(pobjloc) + "_rtti").c_str());
 
-void MSVCRTTI::parseVTable()
-{
-    for(const auto* cobjloc : m_completeobjs)
+    while(pvtable && *pvtable && RD_IsAddress(m_loader, *pvtable))
     {
-        auto loc = RD_AddressOf(m_loader, cobjloc + 1);
-        if(!loc.valid) continue;
+        RDSegment s;
+        if(!RDDocument_GetSegmentAddress(m_document, *pvtable, &s) || !HAS_FLAG(&s, SegmentFlags_Code)) break;
 
-        RDBlock b;
-        if(!RDDocument_GetBlock(m_document, loc.address, &b) || !IS_TYPE(&b, BlockType_Unexplored)) continue;
+        auto loc = RD_AddressOf(m_loader, pvtable);
+        if(!loc.valid) break;
 
-        RDBufferView view;
-        if(!RDContext_GetBlockView(m_context, &b, &view)) continue;
+        std::string vtablename = this->objectName(pobjloc) + "_vtable_" + rd_tohex(loc.address);
+        std::string vmethodname = this->objectName(pobjloc) + "::vsub_" + rd_tohex(*pvtable);
 
-        // for( ; view.size >= sizeof(u32); RDBufferView_Advance(&view, sizeof(u32)))
-        // {
-        //     u32* p = reinterpret_cast<u32*>(view.data);
-        //     if(!RD_IsAddress(m_loader, *p)) break;
-
-        //     RDDocument_AddPointer(m_document, RD_AddressOf(m_loader, p).address, SymbolType_Data, nullptr);
-        //     RDContext_ScheduleFunction(m_context, *p, (this->objectName(cobjloc) + "sub_" + std::to_string(*p)).c_str());
-        // }
+        RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, vtablename.c_str());
+        RDContext_ScheduleFunction(m_context, *pvtable, vmethodname.c_str());
+        pvtable++;
     }
 }
 
-void MSVCRTTI::findCompleteObjLocators(const RDSegment* segment)
+void MSVCRTTI::checkVTable(rd_address vtableaddress)
 {
-    rd_status("Searching RTTICompleteObjectLocator @ " + std::string(segment->name));
+    if(m_vtables.count(vtableaddress)) return;
 
-    RDBufferView view;
-    if(!RDContext_GetSegmentView(m_context, segment, &view)) return;
+    const u32* pvtable = nullptr;
+    const auto* pobjloc = this->findObjectLocator(vtableaddress, &pvtable);
+    if(!pobjloc) return;
 
-    for( ; view.size >= sizeof(RTTICompleteObjectLocator); RDBufferView_Advance(&view, 1))
-    {
-        const auto* pobjloc = reinterpret_cast<const RTTICompleteObjectLocator*>(view.data);
-        if(!pobjloc->pClassHierarchyDescriptor || !RD_IsAddress(m_loader, pobjloc->pClassHierarchyDescriptor)) continue;
-        const auto* ptypedesc = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
-        if(!ptypedesc) continue;
+    const auto* ptypedesc = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
+    if(!ptypedesc) return;
 
-        const char* pname = reinterpret_cast<const char*>(&ptypedesc->name);
-        if(!pname || std::strncmp(pname, MSVC_CLASS_PREFIX, MSVC_CLASS_PREFIX_LENGTH)) continue;
-        m_completeobjs.push_back(pobjloc);
-    }
+    const char* pname = reinterpret_cast<const char*>(&ptypedesc->name);
+    if(!pname || std::strncmp(pname, MSVC_CLASS_PREFIX, MSVC_CLASS_PREFIX_LENGTH)) return;
+
+    this->createVTable(pvtable, pobjloc);
+    m_vtables.insert(vtableaddress);
+}
+
+void MSVCRTTI::checkTypeInfo()
+{
+    if(m_vtables.empty()) return;
+
+    const u32* pvtable = nullptr;
+    const auto* pobjloc = this->findObjectLocator(*m_vtables.begin(), &pvtable);
+    if(!pobjloc) return;
+
+    auto* ptypeinfodescr = reinterpret_cast<RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
+    if(!ptypeinfodescr || !RD_IsAddress(m_loader, ptypeinfodescr->pVFTable)) return;
+    this->checkVTable(ptypeinfodescr->pVFTable); // type_info's vtable
 }
