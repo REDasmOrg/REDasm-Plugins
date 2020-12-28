@@ -92,16 +92,18 @@ bool MSVCRTTI::createHierarchy(rd_address address)
     RDDocument_AddTypeName(m_document, address, DB_RTTIHIERARCHYDESCR_Q);
     if(!pchdescr->numBaseClasses) return false;
 
-    for(size_t i = 0; i < pchdescr->numBaseClasses; i++)
+    u32* pbaseclass = reinterpret_cast<u32*>(RD_AddrPointer(m_loader, pchdescr->pBaseClassArray));
+    if(!pbaseclass) return false;
+
+    for(size_t i = 0; i < pchdescr->numBaseClasses; i++, pbaseclass++)
     {
-        rd_address a = pchdescr->pBaseClassArray + (i * sizeof(u32));
-        RDDocument_AddPointer(m_document, a, SymbolType_Data, nullptr);
+        auto loc = RD_AddressOf(m_loader, pbaseclass);
+        if(!loc.valid) break;
 
-        u32* p = reinterpret_cast<u32*>(RD_AddrPointer(m_loader, a));
-        if(!p) continue;
-        RDDocument_AddType(m_document, *p, m_baseclassdescr.get());
+        RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, nullptr);
+        RDDocument_AddType(m_document, *pbaseclass, m_baseclassdescr.get());
 
-        auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_loader, *p));
+        auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_loader, *pbaseclass));
         if(!pbaseclassdescr) continue;
         RDDocument_AddTypeName(m_document, pbaseclassdescr->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
         this->createHierarchy(pbaseclassdescr->pClassDescriptor);
