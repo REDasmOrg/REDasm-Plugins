@@ -63,7 +63,7 @@ void MSVCCompiler::parseInitTerm(RDContext* ctx, rd_address address)
 
             if(loc.address)
             {
-                RDContext_ScheduleFunction(ctx, loc.address, nullptr);
+                RDContext_DisassembleFunction(ctx, loc.address, nullptr);
                 RDDocument_AddPointer(doc, a, SymbolType_Data, nullptr);
             }
             else

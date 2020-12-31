@@ -23,6 +23,8 @@ MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 
 void MSVCRTTI::search()
 {
+    size_t c = m_vtables.size();
+
     RDDocument_EachFunction(m_document, [](rd_address address, void* userdata) {
         rd_statusaddress("Searching vtables", address);
 
@@ -47,7 +49,9 @@ void MSVCRTTI::search()
     }, this);
 
     this->checkTypeInfo();
-    if(!m_vtables.empty()) rd_log("Found " + std::to_string(m_vtables.size()) + " RTTI Objects");
+
+    if(m_vtables.size() > c)
+        rd_log("Found " + std::to_string((m_vtables.size() - c)) + " RTTI Object(s)");
 }
 
 std::string MSVCRTTI::objectName(const RTTICompleteObjectLocator* pobjloc) const
@@ -167,7 +171,7 @@ void MSVCRTTI::createVTable(const u32* pvtable, const RTTICompleteObjectLocator*
         std::string vmethodname = this->objectName(pobjloc) + "::vsub_" + rd_tohex(*pvtable);
 
         RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, vtablename.c_str());
-        RDContext_ScheduleFunction(m_context, *pvtable, vmethodname.c_str());
+        RDContext_DisassembleFunction(m_context, *pvtable, vmethodname.c_str());
         pvtable++;
     }
 }
