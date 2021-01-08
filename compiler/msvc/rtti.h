@@ -25,6 +25,5 @@ class MSVCRTTI
         rd_ptr<RDType> m_baseclassdescr;
         RDContext* m_context;
         RDDocument* m_document;
-        RDLoader* m_loader;
 };
 

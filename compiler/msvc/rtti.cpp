@@ -17,7 +17,6 @@
 MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 {
     m_document = RDContext_GetDocument(m_context);
-    m_loader = RDContext_GetLoader(m_context);
     this->registerTypes();
 }
 
@@ -41,7 +40,7 @@ void MSVCRTTI::search()
 
             RDILValue val;
             expr = RDILExpression_Extract(expr, "src:cnst");
-            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(thethis->m_loader, val.address)) continue;
+            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(thethis->m_context, val.address)) continue;
             thethis->checkVTable(val.address);
         }
 
@@ -56,17 +55,17 @@ void MSVCRTTI::search()
 
 std::string MSVCRTTI::objectName(const RTTICompleteObjectLocator* pobjloc) const
 {
-    auto* ptypedescr = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
+    auto* ptypedescr = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_context, pobjloc->pTypeDescriptor));
     return RD_Demangle(("?" + std::string(reinterpret_cast<const char*>(&ptypedescr->name)).substr(4) + "6A@Z").c_str());
 }
 
 const RTTICompleteObjectLocator* MSVCRTTI::findObjectLocator(rd_address vtableaddress, const u32** ppvtable) const
 {
-    const u32* pvtable = reinterpret_cast<const u32*>(RD_AddrPointer(m_loader, vtableaddress));
+    const u32* pvtable = reinterpret_cast<const u32*>(RD_AddrPointer(m_context, vtableaddress));
     if(!pvtable) return nullptr;
 
-    const auto* pobjloc = reinterpret_cast<const RTTICompleteObjectLocator*>(RD_AddrPointer(m_loader, *(pvtable - 1)));
-    if(!pobjloc || !pobjloc->pClassHierarchyDescriptor || !RD_IsAddress(m_loader, pobjloc->pClassHierarchyDescriptor)) return nullptr;
+    const auto* pobjloc = reinterpret_cast<const RTTICompleteObjectLocator*>(RD_AddrPointer(m_context, *(pvtable - 1)));
+    if(!pobjloc || !pobjloc->pClassHierarchyDescriptor || !RD_IsAddress(m_context, pobjloc->pClassHierarchyDescriptor)) return nullptr;
 
     if(ppvtable) *ppvtable = pvtable;
     return pobjloc;
@@ -74,12 +73,12 @@ const RTTICompleteObjectLocator* MSVCRTTI::findObjectLocator(rd_address vtablead
 
 bool MSVCRTTI::createType(const RTTICompleteObjectLocator* pobjloc)
 {
-    auto loc = RD_AddressOf(m_loader, pobjloc);
+    auto loc = RD_AddressOf(m_context, pobjloc);
     if(!loc.valid) return false;
 
     RDDocument_AddTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
 
-    if(RD_IsAddress(m_loader, pobjloc->pTypeDescriptor))
+    if(RD_IsAddress(m_context, pobjloc->pTypeDescriptor))
         RDDocument_AddTypeName(m_document, pobjloc->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
 
     return this->createHierarchy(pobjloc->pClassHierarchyDescriptor);
@@ -90,24 +89,24 @@ bool MSVCRTTI::createHierarchy(rd_address address)
     if(m_donebases.count(address)) return true;
     m_donebases.insert(address);
 
-    auto* pchdescr = reinterpret_cast<RTTIClassHierarchyDescriptor*>(RD_AddrPointer(m_loader, address));
+    auto* pchdescr = reinterpret_cast<RTTIClassHierarchyDescriptor*>(RD_AddrPointer(m_context, address));
     if(!pchdescr) return false;
 
     RDDocument_AddTypeName(m_document, address, DB_RTTIHIERARCHYDESCR_Q);
     if(!pchdescr->numBaseClasses) return false;
 
-    u32* pbaseclass = reinterpret_cast<u32*>(RD_AddrPointer(m_loader, pchdescr->pBaseClassArray));
+    u32* pbaseclass = reinterpret_cast<u32*>(RD_AddrPointer(m_context, pchdescr->pBaseClassArray));
     if(!pbaseclass) return false;
 
     for(size_t i = 0; i < pchdescr->numBaseClasses; i++, pbaseclass++)
     {
-        auto loc = RD_AddressOf(m_loader, pbaseclass);
+        auto loc = RD_AddressOf(m_context, pbaseclass);
         if(!loc.valid) break;
 
         RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, nullptr);
         RDDocument_AddType(m_document, *pbaseclass, m_baseclassdescr.get());
 
-        auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_loader, *pbaseclass));
+        auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_context, *pbaseclass));
         if(!pbaseclassdescr) continue;
         RDDocument_AddTypeName(m_document, pbaseclassdescr->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
         this->createHierarchy(pbaseclassdescr->pClassDescriptor);
@@ -156,15 +155,15 @@ void MSVCRTTI::createVTable(const u32* pvtable, const RTTICompleteObjectLocator*
 {
     if(!this->createType(pobjloc)) return;
 
-    auto loc = RD_AddressOf(m_loader, pvtable - 1);
+    auto loc = RD_AddressOf(m_context, pvtable - 1);
     if(loc.valid) RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, (this->objectName(pobjloc) + "_rtti").c_str());
 
-    while(pvtable && *pvtable && RD_IsAddress(m_loader, *pvtable))
+    while(pvtable && *pvtable && RD_IsAddress(m_context, *pvtable))
     {
         RDSegment s;
         if(!RDDocument_GetSegmentAddress(m_document, *pvtable, &s) || !HAS_FLAG(&s, SegmentFlags_Code)) break;
 
-        auto loc = RD_AddressOf(m_loader, pvtable);
+        auto loc = RD_AddressOf(m_context, pvtable);
         if(!loc.valid) break;
 
         std::string vtablename = this->objectName(pobjloc) + "_vtable_" + rd_tohex(loc.address);
@@ -184,7 +183,7 @@ void MSVCRTTI::checkVTable(rd_address vtableaddress)
     const auto* pobjloc = this->findObjectLocator(vtableaddress, &pvtable);
     if(!pobjloc) return;
 
-    const auto* ptypedesc = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
+    const auto* ptypedesc = reinterpret_cast<const RTTITypeDescriptor32*>(RD_AddrPointer(m_context, pobjloc->pTypeDescriptor));
     if(!ptypedesc) return;
 
     const char* pname = reinterpret_cast<const char*>(&ptypedesc->name);
@@ -202,7 +201,7 @@ void MSVCRTTI::checkTypeInfo()
     const auto* pobjloc = this->findObjectLocator(*m_vtables.begin(), &pvtable);
     if(!pobjloc) return;
 
-    auto* ptypeinfodescr = reinterpret_cast<RTTITypeDescriptor32*>(RD_AddrPointer(m_loader, pobjloc->pTypeDescriptor));
-    if(!ptypeinfodescr || !RD_IsAddress(m_loader, ptypeinfodescr->pVFTable)) return;
+    auto* ptypeinfodescr = reinterpret_cast<RTTITypeDescriptor32*>(RD_AddrPointer(m_context, pobjloc->pTypeDescriptor));
+    if(!ptypeinfodescr || !RD_IsAddress(m_context, ptypeinfodescr->pVFTable)) return;
     this->checkVTable(ptypeinfodescr->pVFTable); // type_info's vtable
 }
