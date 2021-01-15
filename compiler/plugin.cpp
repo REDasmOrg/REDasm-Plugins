@@ -1,6 +1,6 @@
 #include <rdapi/rdapi.h>
 #include "msvc/msvccompiler.h"
-#include "coff/symboltable.h"
+#include "coff/coff.h"
 
 void rdplugin_init(RDContext*, RDPluginModule* pm)
 {

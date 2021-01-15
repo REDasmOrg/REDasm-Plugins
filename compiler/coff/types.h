@@ -40,11 +40,11 @@ struct COFF_SymbolTable
         };
     };
 
-    u32 n_value;    // Value of Symbol
-    s16 n_scnum;    // Section Number
-    u16 n_type;     // Symbol Type
-    char n_sclass;  // Storage Class
-    char n_numaux;  // Auxiliary Count
+    u32 n_value;   // Value of Symbol
+    s16 n_scnum;   // Section Number
+    u16 n_type;    // Symbol Type
+    char n_sclass; // Storage Class
+    char n_numaux; // Auxiliary Count
 };
 #pragma pack(pop)
 

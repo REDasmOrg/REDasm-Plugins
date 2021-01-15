@@ -41,3 +41,7 @@
 #define IMAGE_SYM_DTYPE_POINTER  1
 #define IMAGE_SYM_DTYPE_FUNCTION 2
 #define IMAGE_SYM_DTYPE_ARRAY    3
+
+#define BTYPE(x) ((x) & N_BTMASK)
+#define ISPTR(x) (((x) & N_TMASK) == (IMAGE_SYM_DTYPE_POINTER << N_BTSHFT))
+#define ISFCN(x) (((x) & N_TMASK) == (IMAGE_SYM_DTYPE_FUNCTION << N_BTSHFT))
