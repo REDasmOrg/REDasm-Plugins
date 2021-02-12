@@ -25,9 +25,11 @@ void MSVCRTTI::search()
     size_t c = m_vtables.size();
 
     RDDocument_EachFunction(m_document, [](rd_address address, void* userdata) {
-        rd_statusaddress("Searching vtables", address);
-
         auto* thethis = reinterpret_cast<MSVCRTTI*>(userdata);
+        if(thethis->m_done.count(address)) return true;
+        rd_statusaddress("Searching vtables", address);
+        thethis->m_done.insert(address);
+
         rd_ptr<RDILFunction> il(RDILFunction_Create(thethis->m_context, address));
         if(!il) return true;
 

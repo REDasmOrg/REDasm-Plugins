@@ -21,7 +21,7 @@ class MSVCRTTI
         void registerTypes();
 
     private:
-        std::unordered_set<rd_address> m_vtables, m_donebases;
+        std::unordered_set<rd_address> m_vtables, m_donebases, m_done;
         rd_ptr<RDType> m_baseclassdescr;
         RDContext* m_context;
         RDDocument* m_document;
