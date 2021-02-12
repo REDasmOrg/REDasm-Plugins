@@ -6,11 +6,7 @@ void rdplugin_init(RDContext*, RDPluginModule* pm)
 {
     RD_PLUGIN_ENTRY(RDEntryCommand, parsecoff, "COFF Parser");
     parsecoff.signature = "pu";
-
-    parsecoff.isenabled = [](const RDContext* ctx) {
-        return RDContext_MatchLoader(ctx, "pe");
-    };
-
+    parsecoff.isenabled = [](const RDContext* ctx) { return RDContext_MatchLoader(ctx, "pe"); };
     parsecoff.execute = [](RDContext* ctx, const RDArguments* a) {
         auto* cfh = reinterpret_cast<COFF_FileHeader*>(a->args[0].p_data);
         if(!cfh) return false;
