@@ -22,37 +22,38 @@ MSVCRTTI::MSVCRTTI(RDContext* ctx): m_context(ctx)
 
 void MSVCRTTI::search()
 {
-    size_t c = m_vtables.size();
+    size_t vc = m_vtables.size();
 
-    RDDocument_EachFunction(m_document, [](rd_address address, void* userdata) {
-        auto* thethis = reinterpret_cast<MSVCRTTI*>(userdata);
-        if(thethis->m_done.count(address)) return true;
-        rd_statusaddress("Searching vtables", address);
-        thethis->m_done.insert(address);
+    const rd_address* addresses = nullptr;
+    size_t c = RDDocument_GetFunctions(m_document, &addresses);
 
-        rd_ptr<RDILFunction> il(RDILFunction_Create(thethis->m_context, address));
-        if(!il) return true;
+    for(size_t i = 0; i < c; i++)
+    {
+        if(m_done.count(addresses[i])) continue;
+        rd_statusaddress("Searching vtables", addresses[i]);
+        m_done.insert(addresses[i]);
 
-        size_t c = RDILFunction_Size(il.get());
+        rd_ptr<RDILFunction> il(RDILFunction_Create(m_context, addresses[i]));
+        if(!il) continue;
 
-        for(size_t i = 0; i < c; i++) {
-            auto* expr = RDILFunction_GetExpression(il.get(), i);
+        size_t ic = RDILFunction_Size(il.get());
+
+        for(size_t j = 0; j < ic; j++) {
+            auto* expr = RDILFunction_GetExpression(il.get(), j);
             if(!expr) break;
             if(!RDILExpression_Match(expr, "[cnst]=cnst") && !RDILExpression_Match(expr, "[reg]=cnst")) continue;
 
             RDILValue val;
             expr = RDILExpression_Extract(expr, "src:cnst");
-            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(thethis->m_context, val.address)) continue;
-            thethis->checkVTable(val.address);
+            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(m_context, val.address)) continue;
+            checkVTable(val.address);
         }
-
-        return true;
-    }, this);
+    }
 
     this->checkTypeInfo();
 
-    if(m_vtables.size() > c)
-        rd_log("Found " + std::to_string((m_vtables.size() - c)) + " RTTI Object(s)");
+    if(m_vtables.size() > vc)
+        rd_log("Found " + std::to_string((m_vtables.size() - vc)) + " RTTI Object(s)");
 }
 
 std::string MSVCRTTI::objectName(const RTTICompleteObjectLocator* pobjloc) const
