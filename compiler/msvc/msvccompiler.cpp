@@ -63,11 +63,11 @@ void MSVCCompiler::parseInitTerm(RDContext* ctx, rd_address address)
 
             if(loc.address)
             {
-                RDContext_DisassembleFunction(ctx, loc.address, nullptr);
-                RDDocument_AddPointer(doc, a, SymbolType_Data, nullptr);
+                RDDocument_CreateFunction(doc, loc.address, nullptr);
+                RDDocument_SetPointer(doc, a, nullptr);
             }
             else
-                RDDocument_AddData(doc, a, addresswidth, nullptr);
+                RDDocument_SetData(doc, a, addresswidth, nullptr);
         }
     }
 }
@@ -83,8 +83,10 @@ void MSVCCompiler::checkInitTerm(RDContext* ctx)
 
     for(const std::string& q : FUNCTIONS)
     {
-        RDSymbol symbol;
-        if(!RDDocument_FindSymbol(doc, q.c_str(), &symbol, SymbolType_Function)) continue;
-        MSVCCompiler::parseInitTerm(ctx, symbol.address);
+        rd_address address;
+        if(!RDDocument_FindLabel(doc, q.c_str(), &address)) continue;
+
+        if(RDDocument_GetFlags(doc, address) & AddressFlags_Function)
+            MSVCCompiler::parseInitTerm(ctx, address);
     }
 }

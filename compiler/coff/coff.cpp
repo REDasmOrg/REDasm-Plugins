@@ -14,7 +14,7 @@ bool COFF::parse()
 {
     if(!m_sections) return false;
 
-    auto* coffsymbol = reinterpret_cast<COFF_SymbolTable*>(RD_Pointer(m_context, m_fileheader->f_symptr));
+    auto* coffsymbol = reinterpret_cast<COFF_SymbolTable*>(RD_FilePointer(m_context, m_fileheader->f_symptr));
     if(!coffsymbol) return false;
 
     m_stringtable = reinterpret_cast<const char*>(RD_RelPointer(coffsymbol, m_fileheader->f_nsyms * sizeof(COFF_SymbolTable)));
@@ -67,7 +67,7 @@ RDLocation COFF::getLocation(const COFF_SymbolTable* symbol) const
 
 void COFF::parseCEXT(rd_address address, const std::string& name, const COFF_SymbolTable* symbol) const
 {
-    if(ISFCN(symbol->n_type)) RDDocument_AddFunction(m_document, address, name.c_str());
+    if(ISFCN(symbol->n_type)) RDDocument_SetFunction(m_document, address, name.c_str());
     else rd_log("Unhandled EXTERN Symbol: " + name);
 }
 
@@ -75,6 +75,6 @@ void COFF::parseCSTAT(rd_address address, const std::string& name, const COFF_Sy
 {
     if(!symbol->n_value) return;
 
-    if(ISFCN(symbol->n_type)) RDDocument_AddFunction(m_document, address, name.c_str());
+    if(ISFCN(symbol->n_type)) RDDocument_SetFunction(m_document, address, name.c_str());
     else rd_log("Unhandled STATIC Symbol: " + name);
 }

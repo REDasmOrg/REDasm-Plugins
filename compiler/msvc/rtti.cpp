@@ -79,10 +79,10 @@ bool MSVCRTTI::createType(const RTTICompleteObjectLocator* pobjloc)
     auto loc = RD_AddressOf(m_context, pobjloc);
     if(!loc.valid) return false;
 
-    RDDocument_AddTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
+    RDDocument_SetTypeName(m_document, loc.address, DB_RTTICOMPLOBJLOCATOR_Q);
 
     if(RD_IsAddress(m_context, pobjloc->pTypeDescriptor))
-        RDDocument_AddTypeName(m_document, pobjloc->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+        RDDocument_SetTypeName(m_document, pobjloc->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
 
     return this->createHierarchy(pobjloc->pClassHierarchyDescriptor);
 }
@@ -95,7 +95,7 @@ bool MSVCRTTI::createHierarchy(rd_address address)
     auto* pchdescr = reinterpret_cast<RTTIClassHierarchyDescriptor*>(RD_AddrPointer(m_context, address));
     if(!pchdescr) return false;
 
-    RDDocument_AddTypeName(m_document, address, DB_RTTIHIERARCHYDESCR_Q);
+    RDDocument_SetTypeName(m_document, address, DB_RTTIHIERARCHYDESCR_Q);
     if(!pchdescr->numBaseClasses) return false;
 
     u32* pbaseclass = reinterpret_cast<u32*>(RD_AddrPointer(m_context, pchdescr->pBaseClassArray));
@@ -106,12 +106,12 @@ bool MSVCRTTI::createHierarchy(rd_address address)
         auto loc = RD_AddressOf(m_context, pbaseclass);
         if(!loc.valid) break;
 
-        RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, nullptr);
-        RDDocument_AddType(m_document, *pbaseclass, m_baseclassdescr.get());
+        RDDocument_SetPointer(m_document, loc.address, nullptr);
+        RDDocument_SetType(m_document, *pbaseclass, m_baseclassdescr.get());
 
         auto* pbaseclassdescr = reinterpret_cast<RTTIBaseClassDescriptor*>(RD_AddrPointer(m_context, *pbaseclass));
         if(!pbaseclassdescr) continue;
-        RDDocument_AddTypeName(m_document, pbaseclassdescr->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
+        RDDocument_SetTypeName(m_document, pbaseclassdescr->pTypeDescriptor, DB_RTTITYPEDESCR_Q);
         this->createHierarchy(pbaseclassdescr->pClassDescriptor);
     }
 
@@ -159,12 +159,12 @@ void MSVCRTTI::createVTable(const u32* pvtable, const RTTICompleteObjectLocator*
     if(!this->createType(pobjloc)) return;
 
     auto loc = RD_AddressOf(m_context, pvtable - 1);
-    if(loc.valid) RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, (this->objectName(pobjloc) + "_rtti").c_str());
+    if(loc.valid) RDDocument_SetPointer(m_document, loc.address, (this->objectName(pobjloc) + "_rtti").c_str());
 
     while(pvtable && *pvtable && RD_IsAddress(m_context, *pvtable))
     {
         RDSegment s;
-        if(!RDDocument_GetSegmentAddress(m_document, *pvtable, &s) || !HAS_FLAG(&s, SegmentFlags_Code)) break;
+        if(!RDDocument_AddressToSegment(m_document, *pvtable, &s) || !HAS_FLAG(&s, SegmentFlags_Code)) break;
 
         auto loc = RD_AddressOf(m_context, pvtable);
         if(!loc.valid) break;
@@ -172,8 +172,8 @@ void MSVCRTTI::createVTable(const u32* pvtable, const RTTICompleteObjectLocator*
         std::string vtablename = this->objectName(pobjloc) + "_vtable_" + rd_tohex(loc.address);
         std::string vmethodname = this->objectName(pobjloc) + "::vsub_" + rd_tohex(*pvtable);
 
-        RDDocument_AddPointer(m_document, loc.address, SymbolType_Data, vtablename.c_str());
-        RDContext_DisassembleFunction(m_context, *pvtable, vmethodname.c_str());
+        RDDocument_SetPointer(m_document, loc.address, vtablename.c_str());
+        RDDocument_CreateFunction(m_document, *pvtable, vmethodname.c_str());
         pvtable++;
     }
 }
