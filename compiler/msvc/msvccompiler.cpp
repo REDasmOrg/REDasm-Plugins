@@ -58,7 +58,7 @@ void MSVCCompiler::parseInitTerm(RDContext* ctx, rd_address address)
 
         for(rd_address a = *start; a < *end; a += addresswidth)
         {
-            auto loc = RDContext_Dereference(ctx, a);
+            auto loc = RDDocument_Dereference(doc, a);
             if(!loc.valid) continue;
 
             if(loc.address)
