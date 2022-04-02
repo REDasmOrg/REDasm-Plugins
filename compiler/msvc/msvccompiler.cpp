@@ -20,12 +20,10 @@ std::optional<rd_address> MSVCCompiler::extractInitTermArg(RDContext* ctx, rd_ad
     rd_ptr<RDILExpression> e(RDILExpression_Create(ctx, address));
     if(!e || (RDILExpression_Type(e.get()) != RDIL_Push)) return std::nullopt;
 
-    auto* exprval = RDILExpression_Extract(e.get(), "u:cnst");
-    if(!exprval) return std::nullopt;
-
-    RDILValue val;
-    if(!RDILExpression_GetValue(exprval, &val)) return std::nullopt;
-    return val.address;
+    const RDILValue* values = nullptr;
+    size_t n = RDILExpression_ExtractNew(e.get(), &values);
+    if(!n || values[0].type != RDIL_Cnst) return std::nullopt;
+    return values[0].address;
 }
 
 void MSVCCompiler::parseInitTerm(RDContext* ctx, rd_address address)

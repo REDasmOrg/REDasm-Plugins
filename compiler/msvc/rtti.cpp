@@ -43,10 +43,10 @@ void MSVCRTTI::search()
             if(!expr) break;
             if(!RDILExpression_Match(expr, "[cnst]=cnst") && !RDILExpression_Match(expr, "[reg]=cnst")) continue;
 
-            RDILValue val;
-            expr = RDILExpression_Extract(expr, "src:cnst");
-            if(!expr || !RDILExpression_GetValue(expr, &val) || !RD_IsAddress(m_context, val.address)) continue;
-            checkVTable(val.address);
+            const RDILValue* values = nullptr;
+            size_t n = RDILExpression_ExtractNew(expr, &values);
+            if(!n || values[0].type != RDIL_Cnst || !RD_IsAddress(m_context, values[0].address)) continue;
+            checkVTable(values[0].address);
         }
     }
 
