@@ -44,9 +44,9 @@ void MSVCRTTI::search()
             if(!RDILExpression_Match(expr, "[cnst]=cnst") && !RDILExpression_Match(expr, "[reg]=cnst")) continue;
 
             const RDILValue* values = nullptr;
-            size_t n = RDILExpression_ExtractNew(expr, &values);
-            if(!n || values[0].type != RDIL_Cnst || !RD_IsAddress(m_context, values[0].address)) continue;
-            checkVTable(values[0].address);
+            size_t n = RDILExpression_Extract(expr, &values);
+            if(n < 2 || values[1].type != RDIL_Cnst || !RD_IsAddress(m_context, values[1].address)) continue;
+            checkVTable(values[1].address);
         }
     }
 
